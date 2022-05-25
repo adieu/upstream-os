@@ -34,29 +34,11 @@ let
   # systems
   multiPaths = multiPkgs pkgsi686Linux;
 
-  # base packages of the chroot
-  # these match the host's architecture, glibc_multi is used for multilib
-  # builds. glibcLocales must be before glibc or glibc_multi as otherwiese
-  # the wrong LOCALE_ARCHIVE will be used where only C.UTF-8 is available.
-  basePkgs = with pkgs;
-    [ glibcLocales
-      (if isMultiBuild then glibc_multi else glibc)
-      (toString gcc.cc.lib) bashInteractive coreutils less shadow su
-      gawk diffutils findutils gnused gnugrep
-      gnutar gzip bzip2 xz
-    ];
-  baseMultiPkgs = with pkgsi686Linux;
-    [ (toString gcc.cc.lib)
-    ];
-
-  ldconfig = writeShellScriptBin "ldconfig" ''
-    exec ${pkgs.glibc.bin}/bin/ldconfig -f /etc/ld.so.conf -C /etc/ld.so.cache "$@"
-  '';
   etcProfile = writeText "profile" ''
     export PS1='${name}-chrootenv:\u@\h:\w\$ '
     export LOCALE_ARCHIVE='/usr/lib/locale/locale-archive'
-    export LD_LIBRARY_PATH="/run/opengl-driver/lib:/run/opengl-driver-32/lib:/usr/lib:/usr/lib32''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
-    export PATH="/run/wrappers/bin:/usr/bin:/usr/sbin:$PATH"
+    export LIBRARY_PATH="/usr/lib"
+    export PATH="/usr/bin:/usr/sbin:/run/wrappers/bin:$PATH"
     export TZDIR='/etc/zoneinfo'
 
     # Force compilers and other tools to look in default search paths
@@ -89,15 +71,14 @@ let
   # Composes a /usr-like directory structure
   staticUsrProfileTarget = buildEnv {
     name = "${name}-usr-target";
-    # ldconfig wrapper must come first so it overrides the original ldconfig
-    paths = [ etcPkg ldconfig ] ++ basePkgs ++ targetPaths;
+    paths = [ etcPkg ] ++ targetPaths;
     extraOutputsToInstall = [ "out" "lib" "bin" ] ++ extraOutputsToInstall;
     ignoreCollisions = true;
   };
 
   staticUsrProfileMulti = buildEnv {
     name = "${name}-usr-multi";
-    paths = baseMultiPkgs ++ multiPaths;
+    paths = multiPaths;
     extraOutputsToInstall = [ "out" "lib" ] ++ extraOutputsToInstall;
     ignoreCollisions = true;
   };

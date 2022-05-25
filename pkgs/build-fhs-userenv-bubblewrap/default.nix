@@ -65,7 +65,7 @@ let
       "alsa"
       "asound.conf"
       # SSL
-      "ssl/certs"
+      #"ssl/certs"
       "ca-certificates"
       "pki"
     ];
@@ -147,7 +147,7 @@ let
       ${lib.optionalString unshareUts "--unshare-uts"}
       ${lib.optionalString unshareCgroup "--unshare-cgroup"}
       ${lib.optionalString dieWithParent "--die-with-parent"}
-      --ro-bind /nix /nix
+      --bind /nix /nix
       # Our glibc will look for the cache in its own path in `/nix/store`.
       # As such, we need a cache to exist there, because pressure-vessel
       # depends on the existence of an ld cache. However, adding one
