@@ -13,7 +13,6 @@ in
         url = "https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz";
         inherit sha256;
     };
-
     configureFlags = [
         "--disable-big-core"
         "--disable-rpath"

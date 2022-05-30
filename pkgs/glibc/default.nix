@@ -1,21 +1,29 @@
-{fetchurl, stdenv, bash }:
+{fetchurl, stdenv, bash, extraPkgs ? [] }:
 
 let
-  version = "2.30";
-  sha256 = "1bxqpg91d02qnaz837a5kamm0f43pr1il4r9pknygywsar713i72";
+  version = "2.33";
+  sha256 = "sha256-LiVWAA4QXb1X8Layoy/yzxc73k8Nhd/8z9i35RoGd/8=";
 in
   stdenv.mkDerivation {
     pname = "glibc";
     inherit version;
     enableParallelBuilding = true;
     NIX_NO_SELF_RPATH = true;
-    nativeBuildInputs = [ bash ];
+    nativeBuildInputs = [ bash ] ++ extraPkgs;
 
     src = fetchurl {
         url = "mirror://gnu/glibc/glibc-${version}.tar.xz";
         inherit sha256;
     };
 
+    patches = [ ./skip-symlinks-check.patch ];
+
+    postPatch =
+    ''
+      # nscd needs libgcc, and we don't want it dynamically linked
+      # because we don't want it to depend on bootstrap-tools libs.
+      echo "LDFLAGS-nscd += -static-libgcc" >> nscd/Makefile
+    '';
     preConfigure = ''
       mkdir ../build
       cd ../build
@@ -25,7 +33,7 @@ in
       echo "sbindir=/usr/sbin" >> configparms
       echo "rootsbindir=/usr/sbin" >> configparms
     '';
-    postConfigure = ''
+    postConfigurexx = ''
       # Hack: get rid of the `-static' flag set by the bootstrap stdenv.
       # This has to be done *after* `configure' because it builds some
       # test binaries.

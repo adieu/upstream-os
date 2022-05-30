@@ -21,7 +21,7 @@
 
       # A Nixpkgs overlay.
       overlay = final: prev: {
-        # Custom gcc which set dynamic linker to /lib64/ld-linux-x86-64.so.2
+        # Custom gcc which set dynamic linker to /usr/lib/ld-linux-x86-64.so.2
         gccDefaultDynamicLinker = final.gcc9.cc.overrideAttrs (oldAttrs: {
           postPatch = ''
             configureScripts=$(find . -name configure)
@@ -29,16 +29,45 @@
               patchShebangs $configureScript
             done
           '';
+
         });
-        upstreamos = final.recurseIntoAttrs (let callPackage = final.newScope final.upstreamos; in {
+
+        # Using NixOS gcc to build gcc and its dependencies in stage1
+        stage1 = final.recurseIntoAttrs (let callPackage = final.newScope final.stage1; in {
           stdenv = final.callPackage ./pkgs/stdenv {
             stdenv = final.stdenvNoCC;
             gcc = final.gccDefaultDynamicLinker;
             inherit (final.upstreamos) buildFHSUserEnvBubblewrap;
             mkDerivationFromStdenv = import "${nixpkgs}/pkgs/stdenv/generic/make-derivation.nix";
+            namePrefix = "upstreamos-stage1-";
+            basePkgs = pkgs: with pkgs; [python3Minimal bison gnumake binutils-unwrapped which ];
           };
           buildFHSUserEnvBubblewrap = final.callPackage ./pkgs/build-fhs-userenv-bubblewrap { };
           glibc = callPackage ./pkgs/glibc { inherit (final) bash; };
+          gmp = callPackage ./pkgs/gmp { };
+          mpfr = callPackage ./pkgs/mpfr { };
+          libmpc = callPackage ./pkgs/libmpc { };
+          libelf = callPackage ./pkgs/libelf { };
+          gcc = callPackage ./pkgs/gcc { };
+        });
+
+        # Using gcc from stage1 to build the rest of the packages
+        upstreamos = final.recurseIntoAttrs (let callPackage = final.newScope final.upstreamos; in {
+          nixpkgs = final;
+          stage1 = final.stage1;
+          stdenv = final.callPackage ./pkgs/stdenv {
+            stdenv = final.stdenvNoCC;
+            gcc = final.stage1.gcc;
+            inherit (final.upstreamos) buildFHSUserEnvBubblewrap;
+            mkDerivationFromStdenv = import "${nixpkgs}/pkgs/stdenv/generic/make-derivation.nix";
+            namePrefix = "upstreamos-";
+            basePkgs = pkgs: with pkgs; [python3Minimal bison gnumake binutils-unwrapped which linuxHeaders ];
+          };
+          buildFHSUserEnvBubblewrap = final.callPackage ./pkgs/build-fhs-userenv-bubblewrap { };
+          glibc = callPackage ./pkgs/glibc {
+            inherit (final) bash;
+            extraPkgs = [final.stage1.glibc];
+          };
           ncurses = callPackage ./pkgs/ncurses { };
           readline = callPackage ./pkgs/readline { };
           bash = callPackage ./pkgs/bash { };

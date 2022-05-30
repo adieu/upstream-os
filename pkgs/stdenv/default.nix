@@ -1,4 +1,4 @@
-{ lib, pkgs, config, stdenv, gcc, buildFHSUserEnvBubblewrap, mkDerivationFromStdenv }:
+{ lib, pkgs, config, stdenv, gcc, buildFHSUserEnvBubblewrap, mkDerivationFromStdenv, namePrefix, basePkgs }:
 
 let
   # N.B. Keep in sync with default arg for stdenv/generic.
@@ -36,9 +36,7 @@ stdenv.override (old: {
       envName = "${args.pname}-env-${args.version}";
       env = buildFHSUserEnvBubblewrap {
         name = envName;
-        targetPkgs = pkgs: with pkgs;
-          # base packages
-          [python3Minimal bison gnumake binutils-unwrapped which ] ++
+        targetPkgs = pkgs: (basePkgs pkgs) ++
           [ runMake gcc ] ++
           # direct dependencies
           (args.propagateBuildInputs or []) ++
@@ -51,14 +49,15 @@ stdenv.override (old: {
       };
     in
     {
-      pname = "upstreamos-" + args.pname;
+      pname = namePrefix + args.pname;
       strictDeps = true;
       dontPatchShebangs = true;
       dontAddPrefix = true;
       propagatedBuildInputs = (lib.lists.flatten (map (drv: drv.drvAttrs.propagatedBuildInputs ) (args.buildInputs or []))) ++
           (args.buildInputs or []);
-      nativeBuildInputs = [ env ];
+      nativeBuildInputs = [ env pkgs.binutils ];
       runEnv = "${env}/bin/${envName}";
+      STRIP = "strip";
       preConfigure = (args.preConfigure or "") + ''
         # set to empty if unset
         : ''${configureScript=}
